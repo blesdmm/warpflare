@@ -1,3 +1,12 @@
+name: Deploy
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -7,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 增加这一步：强制指定 Node.js 为 20 版本，避开 Node 24 的兼容问题
+      # 强制指定 Node.js 20 环境，修复兼容性报错
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -22,10 +31,10 @@ jobs:
           packageManager: pnpm
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 简化 preCommands，只保留必要的依赖检查
+          # 部署前环境准备
           preCommands: |
             pnpm install -g wrangler
-          # 部署完成后进行数据库绑定和 schema 初始化
+          # 部署后进行数据库 UUID 绑定和表结构初始化
           postCommands: |
             DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
             if [ -n "$DB_UUID" ]; then
@@ -34,6 +43,7 @@ jobs:
             else
               echo "Warning: Database warp-db not found, skipping schema initialization."
             fi
+          # 确保环境变量正确注入
           secrets: |
             SECRET_KEY
             LOSS_THRESHOLD
@@ -50,3 +60,11 @@ jobs:
           GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
           SAVE_ACCOUNT_INTERVAL: ${{ secrets.SAVE_ACCOUNT_INTERVAL || 10 }}
           RESET_ACCOUNT_INTERVAL: ${{ secrets.RESET_ACCOUNT_INTERVAL || 2880 }}
+
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 1
+          keep_minimum_runs: 2
