@@ -24,17 +24,15 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y jq
+          # 彻底绕过 pnpm 策略，使用 npm 安装，避免拦截报错
           rm -rf pnpm-lock.yaml
           npm install
           
       - uses: cloudflare/wrangler-action@v3
         with:
-          # 不再通过 wrangler-action 安装 wrangler，避免路径污染
-          # 使用预装在 runner 中的 wrangler 或通过 npm 直接调用
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           preCommands: |
-            # 使用 npx 直接运行 wrangler，无需全局 add
             npx wrangler d1 list --json > d1_list.json
             DB_UUID=$(jq -r '.[] | select(.name=="warp-db") | .uuid' d1_list.json || echo "")
             if [ -z "$DB_UUID" ]; then
