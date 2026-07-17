@@ -26,21 +26,19 @@ jobs:
           packageManager: pnpm
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 修复点：保留原作者的 preCommands，确保 UUID 绑定和表初始化逻辑准确
+          # 在部署前安装 wrangler 环境
           preCommands: |
-            # 确保数据库存在并更新 wrangler.toml 中的 UUID
-            DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid')
-            if [ -z "$DB_UUID" ]; then
-              wrangler d1 create warp-db
-              DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid')
-            fi
-            sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
-          
-          # 修复点：确保执行部署后运行 schema 初始化
+            pnpm install -g wrangler
+          # 部署完成后进行数据库绑定和 schema 初始化
           postCommands: |
-            wrangler d1 execute warp-db --file=./schema.sql
-            
-          # 关键点：保留原作者的 secrets 定义，确保这些环境变量被注入到 Worker 环境中
+            DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
+            if [ -n "$DB_UUID" ]; then
+              sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
+              wrangler d1 execute warp-db --file=./schema.sql
+            else
+              echo "Warning: Database warp-db not found, skipping schema initialization."
+            fi
+          # 确保所有必需的变量正确注入到 Worker 环境中
           secrets: |
             SECRET_KEY
             LOSS_THRESHOLD
