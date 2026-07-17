@@ -16,6 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # 依然保留 pnpm setup 以支持后续 wrangler 命令
       - uses: pnpm/action-setup@v3
         with:
           version: latest
@@ -24,14 +25,9 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y jq
-          # 设置全局 store 路径并修正 PATH
-          mkdir -p ~/.local/share/pnpm/store
-          pnpm config set store-dir ~/.local/share/pnpm/store
-          echo "$HOME/.local/share/pnpm" >> $GITHUB_PATH
-          
-          # 忽略脚本构建限制，并执行安装
-          pnpm config set ignore-scripts false
-          pnpm install --unsafe-perm
+          # 彻底绕过 pnpm 策略：直接使用 npm 安装依赖
+          rm -rf pnpm-lock.yaml
+          npm install
           
       - uses: cloudflare/wrangler-action@v3
         with:
@@ -39,8 +35,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           preCommands: |
-            # 确保全局安装路径在 PATH 中
-            export PATH=$PATH:$HOME/.local/share/pnpm
             pnpm add -g wrangler
             DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' || echo "")
             if [ -z "$DB_UUID" ]; then
