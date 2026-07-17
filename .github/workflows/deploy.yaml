@@ -16,25 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 强制指定 Node.js 20 环境，修复兼容性报错
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-      - uses: pnpm/action-setup@v3
-        with:
-          version: latest
-          run_install: true
-          
       - uses: cloudflare/wrangler-action@v3
         with:
-          packageManager: pnpm
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 部署前环境准备
+          # 部署前：确保安装了 wrangler (使用 npm 代替 pnpm 避免环境依赖问题)
           preCommands: |
-            pnpm install -g wrangler
-          # 部署后进行数据库 UUID 绑定和表结构初始化
+            npm install -g wrangler
+          # 部署后：绑定数据库并初始化表结构
           postCommands: |
             DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
             if [ -n "$DB_UUID" ]; then
@@ -43,7 +32,6 @@ jobs:
             else
               echo "Warning: Database warp-db not found, skipping schema initialization."
             fi
-          # 确保环境变量正确注入
           secrets: |
             SECRET_KEY
             LOSS_THRESHOLD
