@@ -13,16 +13,26 @@ jobs:
     permissions:
       actions: write
       contents: read
+    # 将 Secrets 直接声明为 Job 级别的环境变量，这样所有步骤都能直接读取
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      LOSS_THRESHOLD: ${{ vars.LOSS_THRESHOLD || 10 }}
+      DELAY_THRESHOLD: ${{ vars.DELAY_THRESHOLD || 500 }}
+      RANDOM_COUNT: ${{ vars.RANDOM_COUNT || 10 }}
+      GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
+      SAVE_ACCOUNT_INTERVAL: ${{ secrets.SAVE_ACCOUNT_INTERVAL || 10 }}
+      RESET_ACCOUNT_INTERVAL: ${{ secrets.RESET_ACCOUNT_INTERVAL || 2880 }}
+
     steps:
       - uses: actions/checkout@v4
       
-      # 明确指定包管理器为 npm，彻底避开 pnpm 导致的路径找不到问题
       - uses: cloudflare/wrangler-action@v3
         with:
           packageManager: npm
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 确保部署后进行数据库操作
+          # 移除 secrets 参数，避免 Action 内部尝试再次读取不存在的配置
+          # 直接使用上面的 env 注入
           postCommands: |
             DB_UUID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
             if [ -n "$DB_UUID" ]; then
@@ -31,22 +41,6 @@ jobs:
             else
               echo "Warning: Database warp-db not found, skipping schema initialization."
             fi
-          secrets: |
-            SECRET_KEY
-            LOSS_THRESHOLD
-            DELAY_THRESHOLD
-            RANDOM_COUNT
-            GET_DATA_INTERVAL
-            SAVE_ACCOUNT_INTERVAL
-            RESET_ACCOUNT_INTERVAL
-        env:
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          LOSS_THRESHOLD: ${{ vars.LOSS_THRESHOLD || 10 }}
-          DELAY_THRESHOLD: ${{ vars.DELAY_THRESHOLD || 500 }}
-          RANDOM_COUNT: ${{ vars.RANDOM_COUNT || 10 }}
-          GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
-          SAVE_ACCOUNT_INTERVAL: ${{ secrets.SAVE_ACCOUNT_INTERVAL || 10 }}
-          RESET_ACCOUNT_INTERVAL: ${{ secrets.RESET_ACCOUNT_INTERVAL || 2880 }}
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
