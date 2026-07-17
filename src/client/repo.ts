@@ -141,44 +141,6 @@ export const getIPAll = async (
   return rows.map(({ address, loss, delay, name, unique_name }) => {
     name = randomName ? unique_name : name
     const [ip, port] = splitIpPort(address)
-    return {
-      ip,
-      port: parseInt(port, 10),
-      loss: parseFloat(loss.replaceAll("%", "")),
-      delay: parseInt(delay.replace("ms", ""), 10),
-      name,
-    }
-  }).filter(({ loss, delay }) =>
-    loss <= LOSS_THRESHOLD && delay <= DELAY_THRESHOLD)
-    .filter(({ ip }) => ipv6 || !ip.includes(":"))
-}
-
-function splitIpPort(address: string): [string, string] {
-  // check if the address is IPv6
-  const bracketRegex = /^\[(.*?)]:(\d+)$/;
-  const v6match = address.match(bracketRegex);
-  if (v6match) {
-    return [v6match[1], v6match[2]];
-  }
-
-  const [ip, port] = address.split(":");
-  return [ip, port];
-}
-
-const tableTask = sqliteTable("Task", {
-  name: text("name").primaryKey(),
-  triggered_at: text("triggered_at").notNull(),
-})
-
-export const getIPAll = async (
-  { DATABASE: DB, LOSS_THRESHOLD = 10, DELAY_THRESHOLD = 500 }: Bindings,
-  randomName: boolean, ipv6: boolean,
-) => {
-  const db = drizzle(DB)
-  const rows = await db.select().from(tableIP).all()
-  return rows.map(({ address, loss, delay, name, unique_name }) => {
-    name = randomName ? unique_name : name
-    const [ip, port] = splitIpPort(address)
     
     // 强制修复：解析端口，如果解析失败（如得到 NaN），强制默认为 4177
     const parsedPort = parseInt(port, 10);
