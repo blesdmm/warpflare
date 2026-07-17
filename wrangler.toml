@@ -5,7 +5,7 @@ compatibility_date = "2023-08-23"
 [[d1_databases]]
 binding = "DATABASE"
 database_name = "warp-db"
-database_id = "4ca7dbc7-74ff-42be-9f86-965dfed62ad7"
+database_id = "11cd3cc3-1a5e-492a-a602-896e4bdb4186"
 
 [triggers]
 crons = [
