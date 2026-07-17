@@ -38,7 +38,11 @@ jobs:
       - name: Deploy
         run: |
           npm install -g wrangler
-          npx wrangler deploy
+          # 部署代码并强制覆盖配置
+          npx wrangler deploy --force
+          # 自动初始化数据库 (确保你的仓库根目录下有 schema.sql 文件)
+          # 注意：如果表已存在，此命令可能会提示错误，可根据需要调整
+          npx wrangler d1 execute warp-db --file=./schema.sql --yes
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
