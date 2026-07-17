@@ -16,7 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 依然保留 pnpm setup 以支持后续 wrangler 命令
       - uses: pnpm/action-setup@v3
         with:
           version: latest
@@ -25,27 +24,29 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y jq
-          # 彻底绕过 pnpm 策略：直接使用 npm 安装依赖
           rm -rf pnpm-lock.yaml
           npm install
           
       - uses: cloudflare/wrangler-action@v3
         with:
-          packageManager: pnpm
+          # 不再通过 wrangler-action 安装 wrangler，避免路径污染
+          # 使用预装在 runner 中的 wrangler 或通过 npm 直接调用
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           preCommands: |
-            pnpm add -g wrangler
-            DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' || echo "")
+            # 使用 npx 直接运行 wrangler，无需全局 add
+            npx wrangler d1 list --json > d1_list.json
+            DB_UUID=$(jq -r '.[] | select(.name=="warp-db") | .uuid' d1_list.json || echo "")
             if [ -z "$DB_UUID" ]; then
               echo "Database not found, creating..."
-              wrangler d1 create warp-db
-              DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid')
+              npx wrangler d1 create warp-db
+              npx wrangler d1 list --json > d1_list_new.json
+              DB_UUID=$(jq -r '.[] | select(.name=="warp-db") | .uuid' d1_list_new.json)
             fi
             echo "Using D1 UUID: $DB_UUID"
             sed -i "s|4ca7dbc7-74ff-42be-9f86-965dfed62ad7|$DB_UUID|g" wrangler.toml
           postCommands: |
-            wrangler d1 execute warp-db --file=./schema.sql
+            npx wrangler d1 execute warp-db --file=./schema.sql
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           LOSS_THRESHOLD: ${{ vars.LOSS_THRESHOLD || 10 }}
