@@ -13,7 +13,6 @@ jobs:
     permissions:
       actions: write
       contents: read
-    # 将 Secrets 直接声明为 Job 级别的环境变量，这样所有步骤都能直接读取
     env:
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
       LOSS_THRESHOLD: ${{ vars.LOSS_THRESHOLD || 10 }}
@@ -31,16 +30,19 @@ jobs:
           packageManager: npm
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 移除 secrets 参数，避免 Action 内部尝试再次读取不存在的配置
-          # 直接使用上面的 env 注入
-          postCommands: |
+          # 核心修复：在部署前强制更新 wrangler.toml 中的数据库 ID
+          preCommands: |
             DB_UUID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
             if [ -n "$DB_UUID" ]; then
+              echo "Updating database_id in wrangler.toml to $DB_UUID"
               sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
-              npx wrangler d1 execute warp-db --file=./schema.sql
             else
-              echo "Warning: Database warp-db not found, skipping schema initialization."
+              echo "Error: Database warp-db not found."
+              exit 1
             fi
+          # 确保部署时不额外触发 D1 初始化，避免 ID 冲突
+          postCommands: |
+            echo "Deployment successful."
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
