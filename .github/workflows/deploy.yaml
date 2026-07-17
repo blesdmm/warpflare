@@ -21,10 +21,9 @@ jobs:
           version: latest
           run_install: false
           
-- name: Install dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y jq
-          # 配置 pnpm 允许所有包运行脚本，彻底避免权限拦截
           pnpm config set ignore-scripts false
           pnpm install
           
@@ -33,10 +32,8 @@ jobs:
           packageManager: pnpm
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 提取预处理逻辑，增强稳定性
           preCommands: |
             pnpm add -g wrangler
-            # 获取或创建 D1 数据库并提取 UUID
             DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' || echo "")
             if [ -z "$DB_UUID" ]; then
               echo "Database not found, creating..."
@@ -44,7 +41,6 @@ jobs:
               DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid')
             fi
             echo "Using D1 UUID: $DB_UUID"
-            # 使用 | 作为分隔符，防止 UUID 中的字符与 sed 默认分隔符冲突
             sed -i "s|4ca7dbc7-74ff-42be-9f86-965dfed62ad7|$DB_UUID|g" wrangler.toml
           postCommands: |
             wrangler d1 execute warp-db --file=./schema.sql
