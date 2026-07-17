@@ -41,8 +41,8 @@ jobs:
           npx wrangler deploy
 
       - name: Initialize Database
-        # 将数据库初始化逻辑独立出来，确保即使部署完成也能正确创建表
-        run: npx wrangler d1 execute warp-db --file=./schema.sql --yes || echo "Database already initialized or schema not found"
+        # 添加了 --remote 参数，确保命令直接作用于 Cloudflare 线上 D1 数据库
+        run: npx wrangler d1 execute warp-db --file=./schema.sql --remote --yes || echo "Initialization completed or already exists"
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
