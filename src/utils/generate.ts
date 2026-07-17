@@ -90,18 +90,17 @@ export const generateSingBox = (
 }
 
 export const generateShadowrocket = (
-  ips: {
-    ip: string,
-    port: number,
-    name: string,
-  }[],
+  ips: any[], // 改为 any 以便我们进行动态检测
   privateKey: string,
 ) => {
   const urls = ips.map((node) => {
-    // 强制从 node 对象中获取数据
-    const server = node.ip || "0.0.0.0";
-    const port = node.port || 4177;
+    // 动态兼容属性名：有些项目里叫 ip，有些叫 server；有些叫 port，有些叫 server_port
+    const server = node.ip || node.server || "0.0.0.0";
+    const port = node.port || node.server_port || 4177;
     const name = node.name || "Unknown";
+
+    // 如果调试时发现 server 还是 0.0.0.0 或 port 是 4177，说明数据源确实没传进来
+    // console.log("Processing node:", { server, port, node });
 
     return `wireguard://${privateKey}@${server}:${port}?`
       + `publickey=${encodeURIComponent(CF_PUBLIC_KEY)}&`
@@ -112,5 +111,6 @@ export const generateShadowrocket = (
       + `stack=system&`
       + `flag=${name.split('-')[0].replace(/[^\x00-\x7F]/g, "")}#${encodeURIComponent(name)}`;
   });
+  
   return btoa(urls.join("\n"));
 };
