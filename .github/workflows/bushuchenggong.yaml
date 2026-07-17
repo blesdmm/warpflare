@@ -1,0 +1,64 @@
+name: Deploy成功过
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v3
+        with:
+          version: latest
+          run_install: false
+          
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          pnpm install
+          
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          packageManager: pnpm
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # 提取预处理逻辑，增强稳定性
+          preCommands: |
+            pnpm add -g wrangler
+            # 获取或创建 D1 数据库并提取 UUID
+            DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' || echo "")
+            if [ -z "$DB_UUID" ]; then
+              echo "Database not found, creating..."
+              wrangler d1 create warp-db
+              DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid')
+            fi
+            echo "Using D1 UUID: $DB_UUID"
+            # 使用 | 作为分隔符，防止 UUID 中的字符与 sed 默认分隔符冲突
+            sed -i "s|4ca7dbc7-74ff-42be-9f86-965dfed62ad7|$DB_UUID|g" wrangler.toml
+          postCommands: |
+            wrangler d1 execute warp-db --file=./schema.sql
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          LOSS_THRESHOLD: ${{ vars.LOSS_THRESHOLD || 10 }}
+          DELAY_THRESHOLD: ${{ vars.DELAY_THRESHOLD || 500 }}
+          RANDOM_COUNT: ${{ vars.RANDOM_COUNT || 10 }}
+          GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
+          SAVE_ACCOUNT_INTERVAL: ${{ secrets.SAVE_ACCOUNT_INTERVAL || 10 }}
+          RESET_ACCOUNT_INTERVAL: ${{ secrets.RESET_ACCOUNT_INTERVAL || 2880 }}
+
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 1
+          keep_minimum_runs: 2
