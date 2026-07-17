@@ -90,17 +90,20 @@ export const generateSingBox = (
 }
 
 export const generateShadowrocket = (
-  ips: any[], // 改为 any 以便我们进行动态检测
+  ips: any[],
   privateKey: string,
 ) => {
   const urls = ips.map((node) => {
-    // 动态兼容属性名：有些项目里叫 ip，有些叫 server；有些叫 port，有些叫 server_port
     const server = node.ip || node.server || "0.0.0.0";
-    const port = node.port || node.server_port || 4177;
+    
+    // --- 完整修复逻辑 ---
+    // 强制获取端口，若为 null、undefined、-1 或非法数字，则一律修正为 4177
+    let port = node.port ?? node.server_port;
+    if (typeof port !== 'number' || port === -1 || isNaN(port)) {
+      port = 4177;
+    }
+    
     const name = node.name || "Unknown";
-
-    // 如果调试时发现 server 还是 0.0.0.0 或 port 是 4177，说明数据源确实没传进来
-    // console.log("Processing node:", { server, port, node });
 
     return `wireguard://${privateKey}@${server}:${port}?`
       + `publickey=${encodeURIComponent(CF_PUBLIC_KEY)}&`
