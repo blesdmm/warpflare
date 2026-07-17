@@ -25,6 +25,8 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           pnpm install
+          # 核心修复：批准这些构建脚本
+          pnpm approve-builds
           
       - uses: cloudflare/wrangler-action@v3
         with:
