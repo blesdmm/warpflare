@@ -16,19 +16,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # 明确指定包管理器为 npm，彻底避开 pnpm 导致的路径找不到问题
       - uses: cloudflare/wrangler-action@v3
         with:
+          packageManager: npm
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 部署前：确保安装了 wrangler (使用 npm 代替 pnpm 避免环境依赖问题)
-          preCommands: |
-            npm install -g wrangler
-          # 部署后：绑定数据库并初始化表结构
+          # 确保部署后进行数据库操作
           postCommands: |
-            DB_UUID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
+            DB_UUID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
             if [ -n "$DB_UUID" ]; then
               sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
-              wrangler d1 execute warp-db --file=./schema.sql
+              npx wrangler d1 execute warp-db --file=./schema.sql
             else
               echo "Warning: Database warp-db not found, skipping schema initialization."
             fi
