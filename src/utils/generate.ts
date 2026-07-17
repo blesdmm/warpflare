@@ -97,16 +97,20 @@ export const generateShadowrocket = (
   }[],
   privateKey: string,
 ) => {
-  const urls = ips.map(({ ip, port, name }) =>
-    // 修改处：将 wg:// 改为 wireguard://，并加入 mtu=1280 和 stack=system
-    `wireguard://${privateKey}@${ip}:${port}?`
-    + `publickey=${CF_PUBLIC_KEY}&`
-    + `address=172.16.0.2/32&`
-    + `dns=1.1.1.1,1.0.0.1&`
-    + `mtu=1280&`
-    + `udp=1&`
-    + `stack=system&` // 这里是关键，强制指定内核处理栈
-    + `flag=${name.split('-')[0].replace(/[^\x00-\x7F]/g, "")}#${encodeURIComponent(name)}`
-  )
-  return btoa(urls.join("\n"))
-}
+  const urls = ips.map((node) => {
+    // 强制从 node 对象中获取数据
+    const server = node.ip || "0.0.0.0";
+    const port = node.port || 4177;
+    const name = node.name || "Unknown";
+
+    return `wireguard://${privateKey}@${server}:${port}?`
+      + `publickey=${encodeURIComponent(CF_PUBLIC_KEY)}&`
+      + `address=172.16.0.2/32&`
+      + `dns=1.1.1.1,1.0.0.1&`
+      + `mtu=1280&`
+      + `udp=1&`
+      + `stack=system&`
+      + `flag=${name.split('-')[0].replace(/[^\x00-\x7F]/g, "")}#${encodeURIComponent(name)}`;
+  });
+  return btoa(urls.join("\n"));
+};
