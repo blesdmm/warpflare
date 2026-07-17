@@ -30,19 +30,9 @@ jobs:
           packageManager: npm
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 核心修复：在部署前强制更新 wrangler.toml 中的数据库 ID
+          # 将脚本合并为单行执行，杜绝语法解析错误
           preCommands: |
-            DB_UUID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
-            if [ -n "$DB_UUID" ]; then
-              echo "Updating database_id in wrangler.toml to $DB_UUID"
-              sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
-            else
-              echo "Error: Database warp-db not found."
-              exit 1
-            fi
-          # 确保部署时不额外触发 D1 初始化，避免 ID 冲突
-          postCommands: |
-            echo "Deployment successful."
+            DB_UUID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1); if [ -n "$DB_UUID" ]; then sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml; else echo "Error: Database not found"; exit 1; fi
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
