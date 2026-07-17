@@ -24,23 +24,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y jq
+          # 使用 npm 彻底绕过 pnpm 的构建脚本拦截策略
           rm -rf pnpm-lock.yaml
           npm install
           
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 核心修复：添加 || true 忽略创建已存在数据库时的报错
-          preCommands: |
-            npx wrangler d1 list --json > d1_list.json
-            DB_UUID=$(jq -r '.[] | select(.name=="warp-db") | .uuid' d1_list.json || echo "")
-            if [ -z "$DB_UUID" ]; then echo "Creating database..." && npx wrangler d1 create warp-db || true && npx wrangler d1 list --json > d1_list_new.json && DB_UUID=$(jq -r '.[] | select(.name=="warp-db") | .uuid' d1_list_new.json); fi
-            echo "Using D1 UUID: $DB_UUID"
-            sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
-          postCommands: |
-            npx wrangler d1 execute warp-db --file=./schema.sql
+      - name: Deploy with Wrangler
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           LOSS_THRESHOLD: ${{ vars.LOSS_THRESHOLD || 10 }}
           DELAY_THRESHOLD: ${{ vars.DELAY_THRESHOLD || 500 }}
@@ -48,6 +39,22 @@ jobs:
           GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
           SAVE_ACCOUNT_INTERVAL: ${{ secrets.SAVE_ACCOUNT_INTERVAL || 10 }}
           RESET_ACCOUNT_INTERVAL: ${{ secrets.RESET_ACCOUNT_INTERVAL || 2880 }}
+        run: |
+          # 1. 准备并绑定数据库 (使用 || true 防止已存在报错)
+          DB_UUID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' || echo "")
+          if [ -z "$DB_UUID" ]; then
+            echo "Creating database..."
+            npx wrangler d1 create warp-db || true
+            DB_UUID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid')
+          fi
+          echo "Using D1 UUID: $DB_UUID"
+          sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
+          
+          # 2. 直接执行部署
+          npx wrangler deploy
+          
+          # 3. 初始化数据库
+          npx wrangler d1 execute warp-db --file=./schema.sql
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
