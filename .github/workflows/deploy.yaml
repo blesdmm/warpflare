@@ -32,10 +32,12 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install dependencies
+        run: npm install
+
       - name: Deploy
         run: |
           npm install -g wrangler
-          # 直接使用 wrangler deploy 命令，不依赖 Action 的预处理
           npx wrangler deploy
 
       - name: Delete workflow runs
