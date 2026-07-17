@@ -21,29 +21,22 @@ jobs:
       GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
       SAVE_ACCOUNT_INTERVAL: ${{ secrets.SAVE_ACCOUNT_INTERVAL || 10 }}
       RESET_ACCOUNT_INTERVAL: ${{ secrets.RESET_ACCOUNT_INTERVAL || 2880 }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     steps:
       - uses: actions/checkout@v4
       
-      - uses: cloudflare/wrangler-action@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          packageManager: npm
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 动态检查并创建数据库
-          preCommands: |
-            echo "Checking for database warp-db..."
-            DB_UUID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | head -n1)
-            if [ -z "$DB_UUID" ]; then
-              echo "Database not found, creating new one..."
-              npx wrangler d1 create warp-db --json > d1_info.json
-              DB_UUID=$(jq -r '.uuid' d1_info.json)
-            fi
-            echo "Using Database ID: $DB_UUID"
-            sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
-          # 部署后自动初始化表结构
-          postCommands: |
-            npx wrangler d1 execute warp-db --file=./schema.sql
+          node-version: '20'
+
+      - name: Deploy
+        run: |
+          npm install -g wrangler
+          # 直接使用 wrangler deploy 命令，不依赖 Action 的预处理
+          npx wrangler deploy
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
