@@ -98,8 +98,15 @@ export const generateShadowrocket = (
   privateKey: string,
 ) => {
   const urls = ips.map(({ ip, port, name }) =>
-    `wg://[${ip}]:${port}?publicKey=${CF_PUBLIC_KEY}&privateKey=${privateKey}`
-    + `&dns=1.1.1.1,1.0.0.1&ip=172.16.0.2&udp=1`
-    + `&flag=${name.split('-')[0].replace(/[^\x00-\x7F]/g, "")}#${encodeURIComponent(name)}`)
+    // 修改处：将 wg:// 改为 wireguard://，并加入 mtu=1280 和 stack=system
+    `wireguard://${privateKey}@${ip}:${port}?`
+    + `publickey=${CF_PUBLIC_KEY}&`
+    + `address=172.16.0.2/32&`
+    + `dns=1.1.1.1,1.0.0.1&`
+    + `mtu=1280&`
+    + `udp=1&`
+    + `stack=system&` // 这里是关键，强制指定内核处理栈
+    + `flag=${name.split('-')[0].replace(/[^\x00-\x7F]/g, "")}#${encodeURIComponent(name)}`
+  )
   return btoa(urls.join("\n"))
 }
