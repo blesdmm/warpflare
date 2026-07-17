@@ -96,12 +96,8 @@ export const generateShadowrocket = (
   const urls = ips.map((node) => {
     const server = node.ip || node.server || "0.0.0.0";
     
-    // --- 完整修复逻辑 ---
-    // 强制获取端口，若为 null、undefined、-1 或非法数字，则一律修正为 4177
-    let port = node.port ?? node.server_port;
-    if (typeof port !== 'number' || port === -1 || isNaN(port)) {
-      port = 4177;
-    }
+    // --- 终极强制纠正：忽略任何来源的端口，直接强行赋值 4177 ---
+    const port = 4177; 
     
     const name = node.name || "Unknown";
 
