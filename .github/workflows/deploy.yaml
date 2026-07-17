@@ -31,13 +31,14 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 逻辑已压平，彻底规避 YAML 多行解析导致的意外语法结束错误
+          # 修复核心：确保sed替换不仅替换ID，还确保toml结构正确
           preCommands: |
             npx wrangler d1 list --json > d1_list.json
             DB_UUID=$(jq -r '.[] | select(.name=="warp-db") | .uuid' d1_list.json || echo "")
             if [ -z "$DB_UUID" ]; then echo "Creating database..." && npx wrangler d1 create warp-db && npx wrangler d1 list --json > d1_list_new.json && DB_UUID=$(jq -r '.[] | select(.name=="warp-db") | .uuid' d1_list_new.json); fi
             echo "Using D1 UUID: $DB_UUID"
-            sed -i "s|4ca7dbc7-74ff-42be-9f86-965dfed62ad7|$DB_UUID|g" wrangler.toml
+            # 使用更稳妥的替换方式，直接指定 database_id 字段
+            sed -i "s/database_id = \".*\"/database_id = \"$DB_UUID\"/g" wrangler.toml
           postCommands: |
             npx wrangler d1 execute warp-db --file=./schema.sql
         env:
