@@ -96,14 +96,18 @@ export const generateShadowrocket = (
   const urls = ips.map((node) => {
     const server = node.ip || node.server || "0.0.0.0";
     
-    // --- 终极强制纠正：忽略任何来源的端口，直接强行赋值 4177 ---
+    // 强制赋值端口 4177
     const port = 4177; 
     
     const name = node.name || "Unknown";
 
-    return `wireguard://${privateKey}@${server}:${port}?`
+    // 对私钥和带有 /32 的地址进行 URL 编码，避免在手机端被截断
+    const encodedPrivateKey = encodeURIComponent(privateKey);
+    const encodedAddress = encodeURIComponent("172.16.0.2/32");
+
+    return `wireguard://${encodedPrivateKey}@${server}:${port}?`
+      + `address=${encodedAddress}&`
       + `publickey=${encodeURIComponent(CF_PUBLIC_KEY)}&`
-      + `address=172.16.0.2/32&`
       + `dns=1.1.1.1,1.0.0.1&`
       + `mtu=1280&`
       + `udp=1&`
