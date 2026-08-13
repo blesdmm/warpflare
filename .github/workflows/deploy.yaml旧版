@@ -1,0 +1,53 @@
+name: Deployjiuban
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      LOSS_THRESHOLD: ${{ vars.LOSS_THRESHOLD || 10 }}
+      DELAY_THRESHOLD: ${{ vars.DELAY_THRESHOLD || 500 }}
+      RANDOM_COUNT: ${{ vars.RANDOM_COUNT || 10 }}
+      GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
+      SAVE_ACCOUNT_INTERVAL: ${{ secrets.SAVE_ACCOUNT_INTERVAL || 10 }}
+      RESET_ACCOUNT_INTERVAL: ${{ secrets.RESET_ACCOUNT_INTERVAL || 2880 }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Deploy
+        run: |
+          npm install -g wrangler
+          npx wrangler deploy
+
+      - name: Initialize Database
+        # 添加了 --remote 参数，确保命令直接作用于 Cloudflare 线上 D1 数据库
+        run: npx wrangler d1 execute warp-db --file=./schema.sql --remote --yes || echo "Initialization completed or already exists"
+
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 1
+          keep_minimum_runs: 2
