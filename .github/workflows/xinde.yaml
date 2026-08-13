@@ -30,7 +30,7 @@ jobs:
           # 1. 部署项目，自动应用 wrangler.toml 中的 [vars] 变量
           npx wrangler deploy
           # 2. 强制将 SECRET_KEY 作为机密变量安全写入 Cloudflare 线上环境
-          echo "${{ secrets.SECRET_KEY }}" | npx wrangler secret put SECRET_KEY --yes
+          echo "${{ secrets.SECRET_KEY }}" | npx wrangler secret put SECRET_KEY
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
