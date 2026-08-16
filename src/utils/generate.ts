@@ -95,9 +95,7 @@ export const generateShadowrocket = (
 ) => {
   const urls = ips.map((node) => {
     const server = node.ip || node.server || "0.0.0.0";
-    
-    // 强制赋值端口 2408
-    const port = 2408; 
+     
     
     const name = node.name || "Unknown";
 
