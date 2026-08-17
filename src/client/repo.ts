@@ -156,12 +156,12 @@ export const getIPAll = async (
     const cidrs = IPV4_CIDRS.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     if (cidrs.length > 0) {
       rawIps = cidrs.map((cidr, index) => {
-        const baseIp = cidr.replace(".0/24", ".1"); // 盲盒网段示例映射
+        const baseIp = cidr.replace(".0/24", ".1"); // 盲盒网段映射
         return {
           ip: baseIp,
           port: 4177,
           loss: 0.00,
-          delay: 150 + (index * 5),
+          delay: 150,
           name: `📦 Box-${index + 1}`
         };
       });
@@ -173,7 +173,7 @@ export const getIPAll = async (
     rawIps = generateDefaultIPv4();
   }
 
-  // 4. 标准化与过滤
+  // 4. 标准化与过滤（已放行盲盒网段，避免被阈值拦截）
   return rawIps
     .map(({ ip, port, loss = 0, delay = 200, name = "Cloudflare" }) => {
       const parsedPort = parseInt(port, 10);
@@ -188,9 +188,13 @@ export const getIPAll = async (
         name: randomName ? `CF-${ip}` : name,
       };
     })
-    .filter(({ loss, delay }) =>
-      loss <= LOSS_THRESHOLD && delay <= DELAY_THRESHOLD
-    )
+    .filter(({ ip, loss, delay }) => {
+      // 🚀 核心修改：如果是 Cloudflare 官方网段或盲盒组装的节点，直接放行，绝不卡丢包和延迟！
+      if (ip.startsWith("162.159.") || ip.startsWith("188.114.")) {
+        return true;
+      }
+      return loss <= LOSS_THRESHOLD && delay <= DELAY_THRESHOLD;
+    })
     .filter(({ ip }) => ipv6 || !ip.includes(":"));
 }
 
