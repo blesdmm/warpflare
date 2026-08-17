@@ -126,7 +126,7 @@ export const generateDefaultIPv4 = () => {
   ]
 }
 
-// 核心获取 IP 逻辑：支持 CSV 解析、盲盒网段组装、环境变量提取
+// 核心获取 IP 逻辑：支持 CSV 解析、多节点随机盲盒组装、环境变量提取
 export const getIPAll = async (
   env: Bindings,
   randomName: boolean, 
@@ -136,6 +136,7 @@ export const getIPAll = async (
   const ipv4Cidrs = env.IPV4_CIDRS;
   const lossThreshold = env.LOSS_THRESHOLD ?? 10;
   const delayThreshold = env.DELAY_THRESHOLD ?? 500;
+  const targetCount = env.RANDOM_COUNT ?? 300;
 
   let rawIps: any[] = [];
 
@@ -177,21 +178,29 @@ export const getIPAll = async (
     }
   }
 
-  // 2. 如果 API 没数据，检查后台变量 IPV4_CIDRS 进行盲盒组装
+  // 2. 如果 API 没数据，检查后台变量 IPV4_CIDRS 进行多节点盲盒组装（随机生成几百个 IP）
   if (rawIps.length === 0 && ipv4Cidrs) {
     const cidrs = ipv4Cidrs.split(/[\r\n,]+/).map(s => s.trim()).filter(Boolean);
     if (cidrs.length > 0) {
-      rawIps = cidrs.map((cidr, index) => {
+      const ports = [4177, 2408, 8742, 3854, 939];
+      const perCidr = Math.max(1, Math.floor(targetCount / cidrs.length));
+
+      for (const cidr of cidrs) {
         const cleanCidr = cidr.includes('/') ? cidr.split('/')[0] : cidr;
-        const baseIp = cleanCidr.replace(/\.\d+$/, '.1');
-        return {
-          ip: baseIp,
-          port: 4177,
-          loss: 0.00,
-          delay: 150,
-          name: `📦 Box-${index + 1}`
-        };
-      });
+        const prefix = cleanCidr.replace(/\.\d+$/, '');
+        
+        for (let i = 0; i < perCidr; i++) {
+          const randomHost = Math.floor(Math.random() * 253) + 2;
+          const randomPort = ports[Math.floor(Math.random() * ports.length)];
+          rawIps.push({
+            ip: `${prefix}.${randomHost}`,
+            port: randomPort,
+            loss: 0.00,
+            delay: Math.floor(Math.random() * 50) + 150,
+            name: `📦 Box-${prefix}.${randomHost}`
+          });
+        }
+      }
     }
   }
 
@@ -200,7 +209,7 @@ export const getIPAll = async (
     rawIps = generateDefaultIPv4();
   }
 
-  // 4. 标准化与过滤（官方网段与 CSV 测速节点强制放行）
+  // 4. 标准化与过滤（官方网段与 CSV/盲盒测速节点强制放行）
   return rawIps
     .map(({ ip, port, loss = 0, delay = 200, name = "Cloudflare" }) => {
       const parsedPort = parseInt(port, 10);
