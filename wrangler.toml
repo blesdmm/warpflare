@@ -1,17 +1,3 @@
-name = "warp"
-main = "src/index.ts"
-compatibility_date = "2023-08-23"
-
-[[d1_databases]]
-binding = "DATABASE"
-database_name = "warp-db"
-database_id = "11cd3cc3-1a5e-492a-a602-896e4bdb4186"
-
-[triggers]
-crons = [
-    '* * * * *',
-]
-
 # 在这里定义你需要注入的变量
 [vars]
 LOSS_THRESHOLD = 10
@@ -20,8 +6,11 @@ RANDOM_COUNT = 300
 GET_DATA_INTERVAL = 2
 SAVE_ACCOUNT_INTERVAL = 10
 RESET_ACCOUNT_INTERVAL = 2880
-IP_API_URL = https://raw.githubusercontent.com/blesdmm/WARP-Clash-API/refs/heads/master/config/result.csv
-IPV4_CIDRS = 162.159.192.0/24
+IP_API_URL = "https://raw.githubusercontent.com/blesdmm/WARP-Clash-API/refs/heads/master/config/result.csv"
+
+# 必须用三引号包起来，支持多行网段
+IPV4_CIDRS = """
+162.159.192.0/24
 162.159.193.0/24
 162.159.195.0/24
 162.159.204.0/24
@@ -29,3 +18,4 @@ IPV4_CIDRS = 162.159.192.0/24
 188.114.97.0/24
 188.114.98.0/24
 188.114.99.0/24
+"""
