@@ -100,13 +100,13 @@ export const generateShadowrocket = (
     name: string,
   }[],
   privateKey: string,
-  env: { RANDOM_PORT_ENABLED?: string } // 关键：在这里接收后台传进来的 env
+  env: { RANDOM_PORT_ENABLED?: string } = {} // 关键：给 env 加上默认空对象兜底 {}
 ) => {
   // 你的自定义端口池
   const ports = [854, 859, 864, 878, 880, 890, 891, 894, 903, 908, 928, 934, 939, 942, 943, 945, 946, 955, 968, 987, 988, 1002, 1010, 1014, 1018, 1070, 1074, 1180, 1387, 1843, 2371, 2506, 3138, 3476, 3581, 3854, 4177, 4198, 4233, 5279, 5956, 7103, 7152, 7156, 7281, 7559, 8319, 8742, 8854, 8886, 2408, 500, 4500, 1701];
 
-  // 核心：读取后台变量。如果后台没填，默认就是 true（走随机）
-  const RANDOM_PORT_ENABLED = env.RANDOM_PORT_ENABLED !== "false";
+  // 稳妥读取：即使 env 为 undefined 或没传，也不会报错
+  const RANDOM_PORT_ENABLED = env?.RANDOM_PORT_ENABLED !== "false";
 
   // 随机选择端口的函数
   const getRandomPort = (portsArray: number[]) => {
