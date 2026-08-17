@@ -27,6 +27,9 @@ export const resetCurrentAccount = async (
 ) => {
   console.log("Reset current account")
   const db = drizzle(DB)
+  // NOTE: To register a brand new account, an old pubKey cannot be used as
+  // doing so will result in an Unauthorized error.
+  // Therefore, it is necessary to regenerate the key pair.
   const { pubKey, privKey } = generateWireguardKeys()
   const result = await register(pubKey)
   const account = {
@@ -52,6 +55,7 @@ export const resetCurrentAccount = async (
 
 export const getCurrentAccount = async ({ DATABASE: DB }: Bindings) => {
   console.log("Get current account")
+  // FIXME: construct db from context
   const db = drizzle(DB)
   let account = await db.select()
     .from(tableAccount).limit(1)
@@ -112,30 +116,40 @@ const tableIP = sqliteTable("IP", {
   unique_name: text("unique_name").notNull()
 })
 
-const tableTask = sqliteTable("Task", {
-  name: text("name").primaryKey(),
-  triggered_at: text("triggered_at").notNull(),
-})
+export const generateDefaultIPv4 = () => {
+  return [
+    { ip: "162.159.192.116", "port": 3854, loss: 0.00, delay: 165, name: "🇺🇸 US-CF-Orange" },
+    { ip: "162.159.192.237", "port": 8742, loss: 0.00, delay: 165, name: "🇺🇸 US-CF-Brown" },
+    { ip: "162.159.195.211", "port": 939, loss: 0.00, delay: 165, name: "🇺🇸 US-CF-Indigo" },
+    { ip: "162.159.195.122", "port": 8742, loss: 0.00, delay: 166, name: "🇺🇸 US-CF-Green" },
+    { ip: "162.159.195.122", "port": 4177, loss: 0.00, delay: 166, name: "🇺🇸 US-CF-Gray" },
+    { ip: "162.159.195.202", "port": 4177, loss: 0.00, delay: 166, name: "🇺🇸 US-CF-Yellow" },
+    { ip: "162.159.195.78", "port": 8742, loss: 0.00, delay: 166, name: "🇺🇸 US-CF-Red" },
+    { ip: "162.159.192.197", "port": 8742, loss: 0.00, delay: 167, name: "🇺🇸 US-CF-White" },
+    { ip: "162.159.195.186", "port": 8742, loss: 0.00, delay: 167, name: "🇺🇸 US-CF-Blue" },
+    { ip: "162.159.195.186", "port": 4177, loss: 0.00, delay: 167, name: "🇺🇸 US-CF-Pink" },
+    { ip: "162.159.195.199", "port": 2408, loss: 0.00, delay: 167, name: "🇺🇸 US-CF-Purple" },
+  ]
+}
 
-// 统一且正确的 getIPAll 实现（基于数据库 IP 表读取与清洗）
 export const getIPAll = async (
   { DATABASE: DB, LOSS_THRESHOLD = 10, DELAY_THRESHOLD = 500 }: Bindings,
-  randomName: boolean, 
-  ipv6: boolean,
+  randomName: boolean, ipv6: boolean,
 ) => {
   const db = drizzle(DB)
   const rows = await db.select().from(tableIP).all()
   return rows.map(({ address, loss, delay, name, unique_name }) => {
-    const finalName = randomName ? unique_name : name
-    const [ip, port] = address.split(":") // 确保 splitIpPort 存在或直接用 split
-     
+    name = randomName ? unique_name : name
+    const [ip, port] = splitIpPort(address)
+    
+    // 强制修复：解析端口，如果解析失败（如得到 NaN），强制默认为 4177
     const parsedPort = parseInt(port, 10);
     return {
       ip,
       port: isNaN(parsedPort) ? 4177 : parsedPort, 
       loss: parseFloat(loss.replaceAll("%", "")),
       delay: parseInt(delay.replace("ms", ""), 10),
-      name: finalName,
+      name,
     }
   }).filter(({ loss, delay }) =>
     loss <= LOSS_THRESHOLD && delay <= DELAY_THRESHOLD)
