@@ -197,7 +197,7 @@ export const getIPAll = async (
             port: randomPort,
             loss: 0.00,
             delay: Math.floor(Math.random() * 50) + 150,
-            name: `📦 Box-${prefix}.${randomHost}`
+            name: `📦 Box-${prefix}.${randomHost}` // 盲盒专属名称
           });
         }
       }
@@ -209,23 +209,25 @@ export const getIPAll = async (
     rawIps = generateDefaultIPv4();
   }
 
-  // 4. 标准化与过滤（官方网段与 CSV/盲盒测速节点强制放行）
+  // 4. 标准化与过滤（完美保留原本自带的名称，绝不盲目覆盖成 CF-）
   return rawIps
-    .map(({ ip, port, loss = 0, delay = 200, name = "Cloudflare" }) => {
+    .map(({ ip, port, loss = 0, delay = 200, name }) => {
       const parsedPort = parseInt(port, 10);
       const parsedLoss = typeof loss === 'string' ? parseFloat(loss.replaceAll("%", "")) : loss;
       const parsedDelay = typeof delay === 'string' ? parseFloat(delay.replace("ms", "").replace("s", "")) : Number(delay);
+
+      // 💡 关键修改：优先使用自带的 name（如 Box 名字、国旗名、CSV名），只有当完全没有名字时才用 CF-IP
+      const finalName = name ? name : `CF-${ip}`;
 
       return {
         ip,
         port: isNaN(parsedPort) ? 4177 : parsedPort,
         loss: isNaN(parsedLoss) ? 0 : parsedLoss,
         delay: isNaN(parsedDelay) ? 200 : parsedDelay,
-        name: randomName ? `CF-${ip}` : name,
+        name: finalName,
       };
     })
     .filter(({ ip, loss, delay }) => {
-      // 🚀 核心放行：如果是官方网段或测速/盲盒节点，直接通过，绝不卡阈值
       if (ip.startsWith("162.159.") || ip.startsWith("188.114.")) {
         return true;
       }
