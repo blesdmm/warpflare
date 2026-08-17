@@ -6,7 +6,3 @@ RANDOM_COUNT = 300
 GET_DATA_INTERVAL = 2
 SAVE_ACCOUNT_INTERVAL = 10
 RESET_ACCOUNT_INTERVAL = 2880
-IP_API_URL = "https://raw.githubusercontent.com/blesdmm/WARP-Clash-API/refs/heads/master/config/result.csv"
-
-# 必须用三引号包起来，支持多行网段
-IPV4_CIDRS = "162.159.192.0/24\n162.159.193.0/24\n162.159.195.0/24\n162.159.204.0/24\n188.114.96.0/24\n188.114.97.0/24\n188.114.98.0/24\n188.114.99.0/24"
