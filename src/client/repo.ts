@@ -126,7 +126,7 @@ export const generateDefaultIPv4 = () => {
   ]
 }
 
-// 核心获取 IP 逻辑：直接接收整个 env 提取后台变量
+// 核心获取 IP 逻辑：支持 CSV 解析、盲盒网段组装、环境变量提取
 export const getIPAll = async (
   env: Bindings,
   randomName: boolean, 
@@ -139,27 +139,51 @@ export const getIPAll = async (
 
   let rawIps: any[] = [];
 
-  // 1. 尝试从后台变量 IP_API_URL 获取测速结果
+  // 1. 尝试从后台变量 IP_API_URL 获取（完美支持 CSV 格式及 JSON 格式）
   if (ipApiUrl && ipApiUrl.startsWith("http")) {
     try {
       const res = await fetch(ipApiUrl);
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          rawIps = data;
+        const text = await res.text();
+        if (text.includes("IP:Port") || text.includes(",")) {
+          const lines = text.split(/\r?\n/);
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            const parts = line.split(",");
+            if (parts.length >= 3) {
+              const [ipPort, lossStr, latencyStr] = parts;
+              const [ip, port] = ipPort.split(":");
+              if (ip && port) {
+                rawIps.push({
+                  ip: ip.trim(),
+                  port: parseInt(port.trim(), 10),
+                  loss: lossStr.trim(),
+                  delay: latencyStr.trim(),
+                  name: `CSV-${ip.trim()}`
+                });
+              }
+            }
+          }
+        } else {
+          const data = JSON.parse(text);
+          if (Array.isArray(data) && data.length > 0) {
+            rawIps = data;
+          }
         }
       }
     } catch (e) {
-      console.log("Failed to fetch from IP_API_URL, fallback to CIDRS or default");
+      console.log("Failed to fetch or parse IP_API_URL, fallback to CIDRS or default");
     }
   }
 
   // 2. 如果 API 没数据，检查后台变量 IPV4_CIDRS 进行盲盒组装
   if (rawIps.length === 0 && ipv4Cidrs) {
-    const cidrs = ipv4Cidrs.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const cidrs = ipv4Cidrs.split(/[\r\n,]+/).map(s => s.trim()).filter(Boolean);
     if (cidrs.length > 0) {
       rawIps = cidrs.map((cidr, index) => {
-        const baseIp = cidr.replace(".0/24", ".1"); // 盲盒网段映射
+        const cleanCidr = cidr.includes('/') ? cidr.split('/')[0] : cidr;
+        const baseIp = cleanCidr.replace(/\.\d+$/, '.1');
         return {
           ip: baseIp,
           port: 4177,
@@ -176,12 +200,12 @@ export const getIPAll = async (
     rawIps = generateDefaultIPv4();
   }
 
-  // 4. 标准化与过滤（盲盒与官方网段强制放行）
+  // 4. 标准化与过滤（官方网段与 CSV 测速节点强制放行）
   return rawIps
     .map(({ ip, port, loss = 0, delay = 200, name = "Cloudflare" }) => {
       const parsedPort = parseInt(port, 10);
       const parsedLoss = typeof loss === 'string' ? parseFloat(loss.replaceAll("%", "")) : loss;
-      const parsedDelay = typeof delay === 'string' ? parseInt(delay.replace("ms", ""), 10) : delay;
+      const parsedDelay = typeof delay === 'string' ? parseFloat(delay.replace("ms", "").replace("s", "")) : Number(delay);
 
       return {
         ip,
@@ -192,7 +216,7 @@ export const getIPAll = async (
       };
     })
     .filter(({ ip, loss, delay }) => {
-      // 🚀 核心放行：官方网段或盲盒组装节点直接通过，不卡丢包和延迟
+      // 🚀 核心放行：如果是官方网段或测速/盲盒节点，直接通过，绝不卡阈值
       if (ip.startsWith("162.159.") || ip.startsWith("188.114.")) {
         return true;
       }
